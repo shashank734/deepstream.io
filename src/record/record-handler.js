@@ -394,6 +394,7 @@ RecordHandler.prototype._update = function (socketWrapper, message) {
 
   const recordName = message.data[0]
   const version = parseInt(message.data[1], 10)
+  let transition = this._transitions[recordName]
 
   /*
    * If the update message is received from the message bus, rather than from a client,
@@ -410,16 +411,17 @@ RecordHandler.prototype._update = function (socketWrapper, message) {
     return
   }
 
-  if (this._transitions[recordName] && this._transitions[recordName].hasVersion(version)) {
-    this._transitions[recordName].sendVersionExists({ message, version, sender: socketWrapper })
+  if (transition && transition.hasVersion(version)) {
+    transition.sendVersionExists({ message, version, sender: socketWrapper })
     return
   }
 
-  if (!this._transitions[recordName]) {
-    this._transitions[recordName] = new RecordTransition(recordName, this._options, this)
+  if (!transition) {
+    transition = new RecordTransition(recordName, this._options, this)
+    this._transitions[recordName] = transition
   }
 
-  this._transitions[recordName].add(socketWrapper, version, message)
+  transition.add(socketWrapper, version, message)
 }
 
 /**

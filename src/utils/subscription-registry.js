@@ -211,10 +211,11 @@ class SubscriptionRegistry {
    * @returns {void}
    */
   sendToSubscribers (name, message, noDelay, socket) {
-    const msgString = messageBuilder.getMsg(message.topic, message.action, message.data)
     if (!this._subscriptions.has(name)) {
       return
     }
+
+    const msgString = messageBuilder.getMsg(message.topic, message.action, message.data)
 
     // not all messages are valid, this should be fixed elsewhere!
     if (msgString.charAt(msgString.length - 1) !== C.MESSAGE_SEPERATOR) {
