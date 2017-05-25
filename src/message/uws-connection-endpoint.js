@@ -31,6 +31,10 @@ module.exports = class UWSConnectionEndpoint extends events.EventEmitter {
     this.description = 'µWebSocket Connection Endpoint'
     this.initialised = false
 
+    this._flushSockets = this._flushSockets.bind(this)
+    this._flushTimeout = null
+    this._scheduledSocketWrapperWrites = new Set()
+
     this._authenticatedSockets = new Set()
   }
 
@@ -84,6 +88,21 @@ module.exports = class UWSConnectionEndpoint extends events.EventEmitter {
     const port = this._getOption('port')
     const host = this._getOption('host')
     this._server.listen(port, host)
+  }
+
+  scheduleFlush (socketWrapper) {
+    this._scheduledSocketWrapperWrites.add(socketWrapper)
+    if (!this._flushTimeout) {
+      this._flushTimeout = setTimeout(this._flushSockets, this._options.outgoingBufferTimeout)
+    }
+  }
+
+  _flushSockets () {
+    for (let socketWrapper of this._scheduledSocketWrapperWrites) {
+      socketWrapper.flush()
+    }
+    this._scheduledSocketWrapperWrites.clear()
+    this._flushTimeout = null
   }
 
   /**
@@ -247,7 +266,7 @@ module.exports = class UWSConnectionEndpoint extends events.EventEmitter {
     const handshakeData = this._upgradeRequest.headers
     this._upgradeRequest = null
 
-    const socketWrapper = new SocketWrapper(external, handshakeData, this._logger)
+    const socketWrapper = new SocketWrapper(external, handshakeData, this._logger, this._options, this)
     uws.native.setUserData(external, socketWrapper)
 
     this._logger.log(

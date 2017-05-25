@@ -50,6 +50,7 @@ exports.get = function () {
           urlPath: '/deepstream',
           healthCheckPath: '/health-check',
           pingInterval: 30000,
+          outgoingBufferTimeout: 0,
 
           /*
            * Security
