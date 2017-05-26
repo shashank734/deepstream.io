@@ -307,9 +307,12 @@ class SubscriptionRegistry {
 
     this._clusterSubscriptions.add(name)
 
-    const logMsg = `for ${this._topic}:${name} by ${socket.user}`
-    this._options.logger.log(C.LOG_LEVEL.DEBUG, this._constants.SUBSCRIBE, logMsg)
-    socket.sendMessage(this._topic, C.ACTIONS.ACK, [this._constants.SUBSCRIBE, name])
+    this._options.logger.log(
+      C.LOG_LEVEL.DEBUG, 
+      this._constants.SUBSCRIBE, 
+      `for ${this._topic}:${name} by ${socket.user}`
+    )
+    socket.sendMessage(this._topic, C.ACTIONS.ACK, [this._constants.SUBSCRIBE, name], true)
   }
 
   /**
@@ -327,8 +330,11 @@ class SubscriptionRegistry {
 
     if (!sockets || !sockets.has(socket)) {
       if(!silent) {
-        const msg = `${socket.user} is not subscribed to ${name}`
-        this._options.logger.log(C.LOG_LEVEL.WARN, this._constants.NOT_SUBSCRIBED, msg)
+        this._options.logger.log(
+          C.LOG_LEVEL.WARN, 
+          this._constants.NOT_SUBSCRIBED, 
+          `${socket.user} is not subscribed to ${name}`
+        )
         socket.sendError(this._topic, this._constants.NOT_SUBSCRIBED, name)
       } 
       return
@@ -358,9 +364,12 @@ class SubscriptionRegistry {
     }
 
     if (!silent) {
-      const logMsg = `for ${this._topic}:${name} by ${socket.user}`
-      this._options.logger.log(C.LOG_LEVEL.DEBUG, this._constants.UNSUBSCRIBE, logMsg)
-      socket.sendMessage(this._topic, C.ACTIONS.ACK, [this._constants.UNSUBSCRIBE, name])
+      this._options.logger.log(
+        C.LOG_LEVEL.DEBUG, 
+        this._constants.UNSUBSCRIBE, 
+        `for ${this._topic}:${name} by ${socket.user}`
+      )
+      socket.sendMessage(this._topic, C.ACTIONS.ACK, [this._constants.UNSUBSCRIBE, name], true)
     }
   }
 

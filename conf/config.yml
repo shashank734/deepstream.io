@@ -123,7 +123,7 @@ auth:
 # Permissioning
 permission:
   # Only config or custom permissionHandler at the moment
-  type: config
+  type: none
   options:
     # Path to the permissionFile. Can be json, js or yml
     path: ./permissions.yml

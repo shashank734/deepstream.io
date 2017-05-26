@@ -3,8 +3,8 @@
 const C = require('../constants/constants')
 const SubscriptionRegistry = require('../utils/subscription-registry')
 const ListenerRegistry = require('../listen/listener-registry')
-const RecordRequest = require('./record-request')
-const RecordTransition = require('./record-transition')
+const recordRequest = require('./record-request-fn')
+const recordTransitionPool = require('./record-transition-pool')
 const RecordDeletion = require('./record-deletion')
 
 /**
@@ -130,7 +130,6 @@ RecordHandler.prototype._hasRecord = function (socketWrapper, message) {
     socketWrapper.sendError(C.TOPIC.RECORD, C.ACTIONS.HAS, [recordName, error])
   }
 
-  // eslint-disable-next-line
   new RecordRequest(recordName,
     this._options,
     socketWrapper,
@@ -225,7 +224,7 @@ RecordHandler.prototype._head = function (socketWrapper, message) {
 RecordHandler.prototype._createOrRead = function (socketWrapper, message) {
   const recordName = message.data[0]
 
-  const onComplete = function (record) {
+  const onComplete = function (record, recordName, socketWrapper) {
     if (record) {
       this._read(recordName, record, socketWrapper)
     } else {
@@ -238,12 +237,13 @@ RecordHandler.prototype._createOrRead = function (socketWrapper, message) {
     }
   }
 
-  // eslint-disable-next-line
-  new RecordRequest(
+  recordRequest(
     recordName,
     this._options,
     socketWrapper,
-    onComplete.bind(this)
+    onComplete,
+    () => {},
+    this
   )
 }
 
@@ -283,28 +283,31 @@ RecordHandler.prototype._createAndUpdate = function (socketWrapper, message) {
     return
   }
 
-  const onComplete = function (record) {
+  const onComplete = function (record, recordName, socketWrapper) {
     if (record) {
       this._permissionAction(
         C.ACTIONS.UPDATE,
         recordName,
         socketWrapper,
-        this._update.bind(this, socketWrapper, message)
+        () => this._update(socketWrapper, message)
       )
     } else {
       this._permissionAction(C.ACTIONS.CREATE, recordName, socketWrapper, () => {
-        this._create(recordName, socketWrapper, () => {
-          this._update(socketWrapper, message)
-        })
+        this._permissionAction(
+          C.ACTIONS.UPDATE, recordName, socketWrapper,
+          () => this._update(socketWrapper, message, true)
+        )
       })
     }
   }
-  // eslint-disable-next-line
-  new RecordRequest(
+
+  recordRequest(
     recordName,
     this._options,
     socketWrapper,
-    onComplete.bind(this)
+    onComplete,
+    () => {},
+    this
   )
 }
 
@@ -323,6 +326,7 @@ RecordHandler.prototype._create = function (recordName, socketWrapper, callback)
     _v: 0,
     _d: {}
   }
+
   // store the records data in the cache and wait for the result
   this._options.cache.set(recordName, record, (error) => {
     if (error) {
@@ -382,11 +386,12 @@ RecordHandler.prototype._sendRecord = function (recordName, record, socketWrappe
  *
  * @param   {SocketWrapper} socketWrapper the socket that send the request
  * @param   {Object} message parsed and validated message
+ * @param   {Boolean} upsert whether an upsert is possible
  *
  * @private
  * @returns {void}
  */
-RecordHandler.prototype._update = function (socketWrapper, message) {
+RecordHandler.prototype._update = function (socketWrapper, message, upsert) {
   if (message.data.length < 3) {
     socketWrapper.sendError(C.TOPIC.RECORD, C.EVENT.INVALID_MESSAGE_DATA, message.data[0])
     return
@@ -417,11 +422,11 @@ RecordHandler.prototype._update = function (socketWrapper, message) {
   }
 
   if (!transition) {
-    transition = new RecordTransition(recordName, this._options, this)
+    transition = recordTransitionPool.get(recordName, this._options, this)
     this._transitions[recordName] = transition
   }
 
-  transition.add(socketWrapper, version, message)
+  transition.add(socketWrapper, version, message, upsert)
 }
 
 /**
